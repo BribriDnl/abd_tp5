@@ -71,7 +71,7 @@ public class TwitterExample {
 	
 	private static final Logger LOG = LoggerFactory.getLogger(TwitterExample.class);
 	
-	static final int DATASET_SIZE = 10;
+	static final int DATASET_SIZE = 500;
 	static final String POSITIVE_WORDS_FILE_PATH = "/home/student/git/flink/flink-examples/flink-examples-streaming/src/main/java/org/apache/flink/streaming/examples/twitter/positive.txt";
 	static final String NEGATIVE_WORDS_FILE_PATH = "/home/student/git/flink/flink-examples/flink-examples-streaming/src/main/java/org/apache/flink/streaming/examples/twitter/negative.txt";
 	static List<String> positiveWords = new ArrayList<String>();
@@ -110,7 +110,7 @@ public class TwitterExample {
 				) {
 			// Create and register a custom TwitterSource
 			TwitterSource customSource = new TwitterSource(params.getProperties());
-			customSource.setCustomEndpointInitializer((EndpointInitializer) new EndpointInitializerImpl(List.of("impeachment")));
+			customSource.setCustomEndpointInitializer((EndpointInitializer) new EndpointInitializerImpl(List.of("impeachment"))); // Only retrieve tweets that contain the word impeachment
 			streamSource = env.addSource(customSource);
 		} else {
 			System.out.println("Executing TwitterStream example with default props.");
@@ -121,14 +121,10 @@ public class TwitterExample {
 		}
 
 		DataStream<Integer> tweets = streamSource
-				.filter(new EnglishTweetsFilter())
-				.map(new TweetTextMapper())
-				.countWindowAll(DATASET_SIZE)
-				.apply(new MapTweetsToScore());
-				// selecting English tweets and splitting to (word, 1)
-				//.flatMap(new SelectEnglishAndTokenizeFlatMap())
-				// group by words and sum their occurrences
-				//.keyBy(0).sum(1);
+				.filter(new EnglishTweetsFilter())  // Filter tweets written in english
+				.map(new TweetTextMapper())			// Map a Json tweet object to its' text
+				.countWindowAll(DATASET_SIZE)		// Regroup tweets in 500 bunches 
+				.apply(new MapTweetsToScore());		// Apply the custom window function to compute the sentiment score
 
 		// emit result
 		if (params.has("output")) {
@@ -305,6 +301,11 @@ public class TwitterExample {
 		}
 		
 	}
+	/**
+	 * Compute the sentiment score for the current window
+	 * @author student
+	 *
+	 */
 	
 	@SuppressWarnings("serial")
 	public static class MapTweetsToScore implements AllWindowFunction<String, Integer, GlobalWindow>{
